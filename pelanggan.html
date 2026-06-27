@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOJIN.NET | Manajemen Pelanggan</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        // Cek preferensi dark mode di localStorage, lalu set warna background secara inline
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            document.documentElement.style.backgroundColor = '#0b1120';
+            document.body.style.backgroundColor = '#0b1120';
+        } else {
+            // opsional untuk light mode, set warna terang
+            document.documentElement.style.backgroundColor = '#f0f2f8';
+            document.body.style.backgroundColor = '#f0f2f8';
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+        :root {
+            --bg-body: #f0f2f8;
+            --sidebar-bg: #0f172a;
+            --sidebar-hover: #1e293b;
+            --card-bg: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --border-light: #e2e8f0;
+            --accent: #2563eb;
+            --header-bg: rgba(255,255,255,0.7);
+            --table-header: #f8fafc;
+            --badge-aktif: #dcfce7;
+            --badge-aktif-text: #166534;
+            --badge-belum-bayar: #fee2e2;
+            --badge-belum-bayar-text: #b91c1c;
+            --badge-pending: #fef9c3;
+            --badge-pending-text: #854d0e;
+        }
+        body.dark {
+            --bg-body: #0b1120;
+            --sidebar-bg: #020617;
+            --sidebar-hover: #1e293b;
+            --card-bg: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --border-light: #334155;
+            --accent: #3b82f6;
+            --header-bg: #0f172acc;
+            --table-header: #0f172a;
+            --badge-aktif: #14532d;
+            --badge-aktif-text: #bbf7d0;
+            --badge-belum-bayar: #7f1d1d;
+            --badge-belum-bayar-text: #fecaca;
+            --badge-pending: #713f12;
+            --badge-pending-text: #fef9c3;
+        }
+        body {
+            background: var(--bg-body);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+        }
+        /* SIDEBAR (sama persis dengan dashboard) */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            padding: 28px 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-light);
+            z-index: 10;
+        }
+        .logo h2 {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #fff, #94a3b8);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .logo p {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        .sidebar-nav {
+            list-style: none;
+            margin: 40px 0 0 0;
+            flex: 1;
+        }
+        .sidebar-nav li {
+            margin: 6px 0;
+            border-radius: 48px;
+        }
+        .sidebar-nav li a {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 18px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            border-radius: 48px;
+            transition: 0.2s;
+        }
+        .sidebar-nav li.active a {
+            background: var(--accent);
+            color: white;
+        }
+        .sidebar-nav li:not(.active):hover a {
+            background: var(--sidebar-hover);
+            color: white;
+        }
+        .sidebar-nav li i {
+            width: 24px;
+            font-size: 1.2rem;
+        }
+        .sidebar-divider {
+            height: 1px;
+            background: var(--border-light);
+            margin: 20px 0;
+        }
+        .sidebar-footer {
+            margin-top: auto;
+        }
+        .dark-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 20px 0 16px;
+            padding: 10px 16px;
+            background: var(--sidebar-hover);
+            border-radius: 48px;
+            color: var(--text-secondary);
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 26px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #475569;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        input:checked + .slider {
+            background-color: var(--accent);
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        /* MAIN */
+        .main {
+            flex: 1;
+            padding: 24px 32px;
+            overflow-y: auto;
+        }
+        /* HEADER */
+        .dashboard-header {
+            background: var(--header-bg);
+            backdrop-filter: blur(12px);
+            border-radius: 32px;
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 28px;
+            border: 1px solid var(--border-light);
+        }
+        .dashboard-title h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+        .dashboard-title p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .date-time {
+            background: var(--card-bg);
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid var(--border-light);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .user-info img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+  
+        /* Action bar */
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .search-box input {
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            padding: 10px 18px;
+            border-radius: 40px;
+            width: 260px;
+            color: var(--text-primary);
+        }
+        .btn-primary {
+            background: var(--accent);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        /* Table */
+        .table-wrapper {
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 20px;
+            border: 1px solid var(--border-light);
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px 8px;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 0.85rem;
+        }
+        th {
+            background: var(--table-header);
+            font-weight: 600;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .status-aktif { background: var(--badge-aktif); color: var(--badge-aktif-text); }
+        .status-belum-bayar { background: var(--badge-belum-bayar); color: var(--badge-belum-bayar-text); }
+        .status-pending { background: var(--badge-pending); color: var(--badge-pending-text); }
+        .action-icons i {
+            margin: 0 5px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+        .action-icons i:hover {
+            color: var(--accent);
+        }
+        @media (max-width: 780px) {
+            .sidebar { width: 80px; padding: 20px 8px; }
+            .sidebar .logo h2, .sidebar .logo p, .dark-toggle span, .sidebar-nav li a span { display: none; }
+            .sidebar-nav li a { justify-content: center; }
+            .main { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <div class="logo">
+        <h2>GOJIN.NET</h2>
+        <p>Sistem Informasi & Monitoring</p>
+    </div>
+    <ul class="sidebar-nav">
+        <li><a href="dashboard.html"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+        <li class="active"><a href="pelanggan.html"><i class="fas fa-users"></i> <span>Pelanggan</span></a></li>
+        <li><a href="paket-internet.html"><i class="fas fa-box"></i> <span>Paket Internet</span></a></li>
+        <li><a href="monitoring.html"><i class="fas fa-user-check"></i> <span>Monitoring User</span></a></li>
+        <li><a href="pembayaran.html"><i class="fas fa-money-bill"></i> <span>Pembayaran</span></a></li>
+        <li><a href="tiket-gangguan.html"><i class="fas fa-ticket-alt"></i> <span>Tiket Gangguan</span></a></li>
+        <li><a href="laporan.html"><i class="fas fa-file"></i> <span>Laporan</span></a></li>
+    </ul>
+    <div class="sidebar-divider"></div>
+    <ul class="sidebar-nav sidebar-footer">
+        <li><a href="pengaturan.html"><i class="fas fa-cog"></i> <span>Pengaturan</span></a></li>
+        <li><a href="user-management.html"><i class="fas fa-users-cog"></i> <span>User Management</span></a></li>
+        <li id="logoutBtn" style="cursor: pointer;"><a href="#"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+    </ul>
+    <div class="dark-toggle">
+        <i class="fas fa-moon"></i> <span>Mode Gelap</span>
+        <label class="switch">
+            <input type="checkbox" id="darkModeToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+</div>
+
+<div class="main">
+    <div class="dashboard-header">
+        <div class="dashboard-title">
+            <h1>Manajemen Pelanggan</h1>
+            <p>Data pelanggan, status, dan tindakan</p>
+        </div>
+        <div class="header-right">
+            <div class="date-time" id="liveDateTime"></div>
+            <div class="user-info">
+                <img src="https://ui-avatars.com/api/?background=2563eb&color=fff&name=Admin" alt="avatar">
+                <span>Admin</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <div class="search-box">
+            <input type="text" id="searchPelanggan" placeholder="🔍 Cari nama / alamat / ID...">
+        </div>
+        <button class="btn-primary" id="tambahPelangganBtn"><i class="fas fa-plus"></i> Tambah Pelanggan</button>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="tabelPelanggan">
+            <thead>
+                <tr><th>ID</th><th>Nama</th><th>Alamat</th><th>Paket</th><th>Status</th><th>Aksi</th></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // ========== AUTH ==========
+    function checkAuth() {
+        const logged = localStorage.getItem('gojin_logged_in') === 'true' || sessionStorage.getItem('gojin_logged_in') === 'true';
+        if (!logged) window.location.href = 'login-new.html';
+    }
+    checkAuth();
+
+    // ========== LOGOUT ==========
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.removeItem('gojin_logged_in');
+        sessionStorage.removeItem('gojin_logged_in');
+        window.location.href = 'landing.html'; // ganti dengan landing page Anda
+    });
+
+    // ========== DARK MODE ==========
+    const darkToggle = document.getElementById('darkModeToggle');
+    if (localStorage.getItem('darkMode') === 'enabled') {
+        document.body.classList.add('dark');
+        darkToggle.checked = true;
+    }
+    darkToggle.addEventListener('change', () => {
+        if (darkToggle.checked) {
+            document.body.classList.add('dark');
+            localStorage.setItem('darkMode', 'enabled');
+        } else {
+            document.body.classList.remove('dark');
+            localStorage.setItem('darkMode', 'disabled');
+        }
+    });
+
+    // ========== LIVE DATE TIME ==========
+    function updateDateTime() {
+        const now = new Date();
+        const formatted = now.toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        document.getElementById('liveDateTime').innerHTML = `<i class="far fa-calendar-alt"></i> ${formatted}`;
+    }
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+
+    // ========== DATA PELANGGAN ==========
+    let pelangganData = [
+        { id: 1, nama: "Andi Wijaya", alamat: "Jl. Kenanga No.12", paket: "20 Mbps", status: "aktif" },
+        { id: 2, nama: "Siti Nurhaliza", alamat: "Jl. Melati No.5", paket: "50 Mbps", status: "aktif" },
+        { id: 3, nama: "Bambang Susanto", alamat: "Jl. Anggrek No.8", paket: "10 Mbps", status: "belum_bayar" },
+        { id: 4, nama: "Rina Maharani", alamat: "Jl. Mawar No.21", paket: "100 Mbps", status: "aktif" },
+        { id: 5, nama: "Dika Pratama", alamat: "Jl. Flamboyan No.3", paket: "20 Mbps", status: "pending" },
+        { id: 6, nama: "Citra Kirana", alamat: "Jl. Cemara No.7", paket: "50 Mbps", status: "aktif" }
+    ];
+
+    function renderTable() {
+        const searchText = document.getElementById('searchPelanggan').value.toLowerCase();
+        const filtered = pelangganData.filter(p => 
+            p.nama.toLowerCase().includes(searchText) || 
+            p.alamat.toLowerCase().includes(searchText) || 
+            p.id.toString().includes(searchText)
+        );
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = "";
+        filtered.forEach(p => {
+            let statusClass = "";
+            let statusText = "";
+            if (p.status === "aktif") { statusClass = "status-aktif"; statusText = "Aktif"; }
+            else if (p.status === "belum_bayar") { statusClass = "status-belum-bayar"; statusText = "Belum Bayar"; }
+            else { statusClass = "status-pending"; statusText = "Pending"; }
+            const row = tbody.insertRow();
+            row.insertCell(0).innerText = p.id;
+            row.insertCell(1).innerText = p.nama;
+            row.insertCell(2).innerText = p.alamat;
+            row.insertCell(3).innerText = p.paket;
+            row.insertCell(4).innerHTML = `<span class="status-badge ${statusClass}">${statusText}</span>`;
+            row.insertCell(5).innerHTML = `
+                <div class="action-icons">
+                    <i class="fas fa-edit" onclick="editPelanggan(${p.id})" title="Edit"></i>
+                    <i class="fas fa-trash-alt" onclick="hapusPelanggan(${p.id})" title="Hapus"></i>
+                </div>
+            `;
+        });
+    }
+
+    window.editPelanggan = (id) => {
+        const pelanggan = pelangganData.find(p => p.id === id);
+        if (pelanggan) {
+            const newNama = prompt("Edit Nama:", pelanggan.nama);
+            if (newNama) pelanggan.nama = newNama;
+            const newAlamat = prompt("Edit Alamat:", pelanggan.alamat);
+            if (newAlamat) pelanggan.alamat = newAlamat;
+            renderTable();
+        }
+    };
+
+    window.hapusPelanggan = (id) => {
+        if (confirm("Yakin hapus pelanggan ini?")) {
+            pelangganData = pelangganData.filter(p => p.id !== id);
+            renderTable();
+        }
+    };
+
+    document.getElementById('tambahPelangganBtn').addEventListener('click', () => {
+        const newId = pelangganData.length > 0 ? Math.max(...pelangganData.map(p => p.id)) + 1 : 7;
+        const newNama = prompt("Nama Pelanggan:");
+        if (!newNama) return;
+        const newAlamat = prompt("Alamat:");
+        const newPaket = prompt("Paket (10/20/50/100 Mbps):", "20 Mbps");
+        pelangganData.push({
+            id: newId,
+            nama: newNama,
+            alamat: newAlamat || "-",
+            paket: newPaket || "20 Mbps",
+            status: "pending"
+        });
+        renderTable();
+    });
+
+    document.getElementById('searchPelanggan').addEventListener('keyup', renderTable);
+    renderTable();
+</script>
+</body>
+</html>

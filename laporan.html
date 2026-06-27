@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOJIN.NET | Laporan & Analisis</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        // Cek preferensi dark mode di localStorage, lalu set warna background secara inline
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            document.documentElement.style.backgroundColor = '#0b1120';
+            document.body.style.backgroundColor = '#0b1120';
+        } else {
+            // opsional untuk light mode, set warna terang
+            document.documentElement.style.backgroundColor = '#f0f2f8';
+            document.body.style.backgroundColor = '#f0f2f8';
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+        :root {
+            --bg-body: #f0f2f8;
+            --sidebar-bg: #0f172a;
+            --sidebar-hover: #1e293b;
+            --card-bg: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --border-light: #e2e8f0;
+            --accent: #2563eb;
+            --header-bg: rgba(255,255,255,0.7);
+            --table-header: #f8fafc;
+        }
+        body.dark {
+            --bg-body: #0b1120;
+            --sidebar-bg: #020617;
+            --sidebar-hover: #1e293b;
+            --card-bg: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --border-light: #334155;
+            --accent: #3b82f6;
+            --header-bg: #0f172acc;
+            --table-header: #0f172a;
+        }
+        body {
+            background: var(--bg-body);
+            color: var(--text-primary);
+            display: flex;
+            min-height: 100vh;
+        }
+        /* SIDEBAR */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            padding: 28px 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-light);
+            z-index: 10;
+        }
+        .logo h2 {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #fff, #94a3b8);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .logo p {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        .sidebar-nav {
+            list-style: none;
+            margin: 40px 0 0 0;
+            flex: 1;
+        }
+        .sidebar-nav li {
+            margin: 6px 0;
+            border-radius: 48px;
+        }
+        .sidebar-nav li a {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 18px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            border-radius: 48px;
+            transition: 0.2s;
+        }
+        .sidebar-nav li.active a {
+            background: var(--accent);
+            color: white;
+        }
+        .sidebar-nav li:not(.active):hover a {
+            background: var(--sidebar-hover);
+            color: white;
+        }
+        .sidebar-nav li i {
+            width: 24px;
+            font-size: 1.2rem;
+        }
+        .sidebar-divider {
+            height: 1px;
+            background: var(--border-light);
+            margin: 20px 0;
+        }
+        .sidebar-footer {
+            margin-top: auto;
+        }
+        .dark-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 20px 0 16px;
+            padding: 10px 16px;
+            background: var(--sidebar-hover);
+            border-radius: 48px;
+            color: var(--text-secondary);
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 26px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #475569;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        input:checked + .slider {
+            background-color: var(--accent);
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        /* MAIN */
+        .main {
+            flex: 1;
+            padding: 24px 32px;
+            overflow-y: auto;
+        }
+        .dashboard-header {
+            background: var(--header-bg);
+            backdrop-filter: blur(12px);
+            border-radius: 32px;
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 28px;
+            border: 1px solid var(--border-light);
+        }
+        .dashboard-title h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+        .dashboard-title p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .date-time {
+            background: var(--card-bg);
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid var(--border-light);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .user-info img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+        /* filter bar */
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-bar select, .filter-bar button {
+            background: var(--card-bg);
+            border: 1px solid var(--border-light);
+            padding: 10px 16px;
+            border-radius: 40px;
+            color: var(--text-primary);
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        /* stats cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 20px;
+            border: 1px solid var(--border-light);
+        }
+        .stat-card h4 {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+        /* charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        .chart-panel {
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 20px;
+            border: 1px solid var(--border-light);
+        }
+        .chart-panel h3 {
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+        canvas {
+            max-height: 280px;
+            width: 100%;
+        }
+        /* tables */
+        .table-wrapper {
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 20px;
+            border: 1px solid var(--border-light);
+            overflow-x: auto;
+            margin-bottom: 24px;
+        }
+        .table-wrapper h3 {
+            margin-bottom: 16px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px 8px;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 0.85rem;
+        }
+        th {
+            background: var(--table-header);
+            font-weight: 600;
+        }
+        .export-btn {
+            background: #10b981;
+            margin-left: 10px;
+        }
+        @media (max-width: 780px) {
+            .sidebar { width: 80px; padding: 20px 8px; }
+            .sidebar .logo h2, .sidebar .logo p, .dark-toggle span, .sidebar-nav li a span { display: none; }
+            .sidebar-nav li a { justify-content: center; }
+            .main { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <div class="logo">
+        <h2>GOJIN.NET</h2>
+        <p>ISP Monitoring</p>
+    </div>
+    <ul class="sidebar-nav">
+        <li><a href="dashboard.html"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a></li>
+        <li><a href="pelanggan.html"><i class="fas fa-users"></i> <span>Pelanggan</span></a></li>
+        <li><a href="paket-internet.html"><i class="fas fa-box"></i> <span>Paket Internet</span></a></li>
+        <li><a href="monitoring.html"><i class="fas fa-user-check"></i> <span>Monitoring User</span></a></li>
+        <li><a href="pembayaran.html"><i class="fas fa-money-bill"></i> <span>Pembayaran</span></a></li>
+        <li><a href="tiket-gangguan.html"><i class="fas fa-ticket-alt"></i> <span>Tiket Gangguan</span></a></li>
+        <li class="active"><a href="laporan.html"><i class="fas fa-file"></i> <span>Laporan</span></a></li>
+    </ul>
+    <div class="sidebar-divider"></div>
+    <ul class="sidebar-nav sidebar-footer">
+        <li><a href="pengaturan.html"><i class="fas fa-cog"></i> <span>Pengaturan</span></a></li>
+        <li><a href="user-management.html"><i class="fas fa-users-cog"></i> <span>User Management</span></a></li>
+        <li id="logoutBtn" style="cursor: pointer;"><a href="#"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
+    </ul>
+    <div class="dark-toggle">
+        <i class="fas fa-moon"></i> <span>Mode Gelap</span>
+        <label class="switch">
+            <input type="checkbox" id="darkModeToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+</div>
+
+<div class="main">
+    <div class="dashboard-header">
+        <div class="dashboard-title">
+            <h1>Laporan & Analisis</h1>
+            <p>Rekap pendapatan, tiket, dan performa jaringan</p>
+        </div>
+        <div class="header-right">
+            <div class="date-time" id="liveDateTime"></div>
+            <div class="user-info">
+                <img src="https://ui-avatars.com/api/?background=2563eb&color=fff&name=Admin" alt="avatar">
+                <span>Admin</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <select id="tahunSelect">
+            <option value="2025">2025</option>
+            <option value="2026" selected>2026</option>
+            <option value="2027">2027</option>
+        </select>
+        <button class="btn-primary" id="filterBtn"><i class="fas fa-chart-line"></i> Tampilkan Laporan</button>
+        <button class="btn-primary export-btn" id="exportBtn"><i class="fas fa-print"></i> Cetak / Export</button>
+    </div>
+
+    <!-- Statistik Ringkasan -->
+    <div class="stats-row" id="statsContainer">
+        <div class="stat-card"><h4><i class="fas fa-users"></i> Total Pelanggan</h4><div class="value" id="totalPelanggan">0</div></div>
+        <div class="stat-card"><h4><i class="fas fa-chart-line"></i> Total Pendapatan</h4><div class="value" id="totalPendapatan">Rp0</div></div>
+        <div class="stat-card"><h4><i class="fas fa-ticket-alt"></i> Total Tiket</h4><div class="value" id="totalTiket">0</div></div>
+        <div class="stat-card"><h4><i class="fas fa-check-circle"></i> Tiket Selesai</h4><div class="value" id="tiketSelesai">0</div></div>
+    </div>
+
+    <!-- Grafik -->
+    <div class="charts-grid">
+        <div class="chart-panel">
+            <h3><i class="fas fa-money-bill-wave"></i> Pendapatan per Bulan</h3>
+            <canvas id="revenueChart"></canvas>
+        </div>
+        <div class="chart-panel">
+            <h3><i class="fas fa-chart-line"></i> Jumlah Tiket Gangguan per Bulan</h3>
+            <canvas id="ticketChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabel Ringkasan Pembayaran -->
+    <div class="table-wrapper">
+        <h3><i class="fas fa-receipt"></i> Ringkasan Pembayaran per Bulan</h3>
+        <table id="paymentTable">
+            <thead><tr><th>Bulan</th><th>Total Transaksi</th><th>Total Pendapatan</th><th>Rata-rata</th></tr></thead>
+            <tbody id="paymentBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Tabel Ringkasan Tiket -->
+    <div class="table-wrapper">
+        <h3><i class="fas fa-tasks"></i> Ringkasan Tiket Gangguan per Status</h3>
+        <table id="ticketSummaryTable">
+            <thead><tr><th>Status</th><th>Jumlah Tiket</th><th>Persentase</th></tr></thead>
+            <tbody id="ticketSummaryBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // ========== AUTHENTIKASI ==========
+    function checkAuth() {
+        const logged = localStorage.getItem('gojin_logged_in') === 'true' || sessionStorage.getItem('gojin_logged_in') === 'true';
+        if (!logged) window.location.href = 'login-new.html';
+    }
+    checkAuth();
+
+    // ========== LOGOUT ==========
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.removeItem('gojin_logged_in');
+        sessionStorage.removeItem('gojin_logged_in');
+        window.location.href = 'landing.html'; // ganti dengan landing page Anda
+    });
+
+    // ========== DARK MODE ==========
+    const darkToggle = document.getElementById('darkModeToggle');
+    if (localStorage.getItem('darkMode') === 'enabled') {
+        document.body.classList.add('dark');
+        darkToggle.checked = true;
+    }
+    darkToggle.addEventListener('change', () => {
+        if (darkToggle.checked) {
+            document.body.classList.add('dark');
+            localStorage.setItem('darkMode', 'enabled');
+        } else {
+            document.body.classList.remove('dark');
+            localStorage.setItem('darkMode', 'disabled');
+        }
+    });
+
+    // ========== LIVE DATE TIME ==========
+    function updateDateTime() {
+        const now = new Date();
+        const formatted = now.toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        document.getElementById('liveDateTime').innerHTML = `<i class="far fa-calendar-alt"></i> ${formatted}`;
+    }
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+
+    // ========== DATA SIMULASI (dinamis per tahun) ==========
+    // Data pendapatan per bulan (dalam juta rupiah)
+    const revenueData = {
+        2025: [85, 90, 78, 110, 125, 140, 135, 150, 148, 160, 175, 190],
+        2026: [95, 102, 110, 125, 140, 155, 160, 175, 185, 200, 215, 230],
+        2027: [105, 115, 125, 140, 155, 170, 180, 195, 205, 220, 235, 250]
+    };
+    // Data jumlah tiket per bulan
+    const ticketData = {
+        2025: [12, 10, 14, 8, 6, 9, 11, 7, 5, 8, 6, 4],
+        2026: [9, 8, 12, 7, 5, 6, 8, 5, 4, 6, 5, 3],
+        2027: [7, 6, 10, 6, 4, 5, 7, 4, 3, 5, 4, 2]
+    };
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    let revenueChart, ticketChart;
+
+    function formatRupiah(angka) {
+        return "Rp" + angka.toLocaleString('id-ID');
+    }
+
+    function updateReports() {
+        const tahun = document.getElementById('tahunSelect').value;
+        const rev = revenueData[tahun];
+        const tic = ticketData[tahun];
+        const totalPendapatan = rev.reduce((a,b) => a + b, 0);
+        const totalTiket = tic.reduce((a,b) => a + b, 0);
+        const totalPelanggan = 542; // data statis dari dashboard
+        const tiketSelesai = Math.floor(totalTiket * 0.7); // simulasi 70% selesai
+
+        document.getElementById('totalPelanggan').innerText = totalPelanggan;
+        document.getElementById('totalPendapatan').innerText = formatRupiah(totalPendapatan * 1000000);
+        document.getElementById('totalTiket').innerText = totalTiket;
+        document.getElementById('tiketSelesai').innerText = tiketSelesai;
+
+        // Update charts
+        if (revenueChart) revenueChart.destroy();
+        if (ticketChart) ticketChart.destroy();
+        const ctxRev = document.getElementById('revenueChart').getContext('2d');
+        revenueChart = new Chart(ctxRev, {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'Pendapatan (Juta Rp)',
+                    data: rev,
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 8
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'top' } } }
+        });
+        const ctxTic = document.getElementById('ticketChart').getContext('2d');
+        ticketChart = new Chart(ctxTic, {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'Jumlah Tiket',
+                    data: tic,
+                    borderColor: '#f59e0b',
+                    backgroundColor: '#f59e0b20',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: { responsive: true }
+        });
+
+        // Tabel pembayaran per bulan
+        const paymentBody = document.getElementById('paymentBody');
+        paymentBody.innerHTML = "";
+        rev.forEach((val, idx) => {
+            const row = paymentBody.insertRow();
+            row.insertCell(0).innerText = months[idx];
+            row.insertCell(1).innerText = Math.floor(Math.random() * 20 + 10); // jumlah transaksi simulasi
+            row.insertCell(2).innerText = formatRupiah(val * 1000000);
+            row.insertCell(3).innerText = formatRupiah((val * 1000000) / (Math.floor(Math.random() * 20 + 10)));
+        });
+
+        // Tabel ringkasan tiket per status
+        const diproses = Math.floor(totalTiket * 0.2);
+        const pending = Math.floor(totalTiket * 0.1);
+        const selesai = totalTiket - diproses - pending;
+        const ticketSummaryBody = document.getElementById('ticketSummaryBody');
+        ticketSummaryBody.innerHTML = "";
+        const statuses = [
+            { name: "Diproses", count: diproses, color: "#f59e0b" },
+            { name: "Selesai", count: selesai, color: "#22c55e" },
+            { name: "Pending", count: pending, color: "#ef4444" }
+        ];
+        statuses.forEach(s => {
+            const row = ticketSummaryBody.insertRow();
+            row.insertCell(0).innerHTML = `<span style="color:${s.color}">●</span> ${s.name}`;
+            row.insertCell(1).innerText = s.count;
+            row.insertCell(2).innerText = ((s.count / totalTiket) * 100).toFixed(1) + "%";
+        });
+    }
+
+    document.getElementById('filterBtn').addEventListener('click', updateReports);
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        alert("Fitur export laporan akan segera hadir.\nAnda dapat mencetak halaman ini menggunakan Ctrl+P.");
+    });
+
+    // Load default (tahun 2026)
+    updateReports();
+</script>
+</body>
+</html>
