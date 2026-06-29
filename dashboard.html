@@ -12,7 +12,6 @@
             document.documentElement.style.backgroundColor = '#0b1120';
             document.body.style.backgroundColor = '#0b1120';
         } else {
-            // opsional untuk light mode, set warna terang
             document.documentElement.style.backgroundColor = '#f0f2f8';
             document.body.style.backgroundColor = '#f0f2f8';
         }
@@ -381,6 +380,24 @@
             width: 24px;
             color: var(--accent);
         }
+        .activity-list .payment-notif {
+            background: rgba(34, 197, 94, 0.08);
+            border-left: 3px solid #22c55e;
+            padding-left: 12px;
+            border-radius: 0 8px 8px 0;
+        }
+        .activity-list .payment-notif i {
+            color: #22c55e;
+        }
+        body.dark .activity-list .payment-notif {
+            background: rgba(34, 197, 94, 0.15);
+        }
+        .activity-list .payment-notif small {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
         @media (max-width: 780px) {
             .sidebar { width: 80px; padding: 20px 8px; }
             .sidebar .logo h2, .sidebar .logo p, .dark-toggle span, .sidebar-nav li a span { display: none; }
@@ -438,15 +455,13 @@
         </div>
     </div>
 
-    <!-- Metric Cards -->
     <div class="metric-grid">
-        <div class="metric-card"><div class="icon"><i class="fas fa-user-friends"></i></div><h3>Total Pelanggan</h3><div class="metric-value">10</div><span>↑ +12</span></div>
-        <div class="metric-card"><div class="icon"><i class="fas fa-check-circle"></i></div><h3>User Aktif</h3><div class="metric-value">5</div><span>89%</span></div>
+        <div class="metric-card"><div class="icon"><i class="fas fa-user-friends"></i></div><h3>Total Pelanggan</h3><div class="metric-value">542</div><span>↑ +12</span></div>
+        <div class="metric-card"><div class="icon"><i class="fas fa-check-circle"></i></div><h3>User Aktif</h3><div class="metric-value">487</div><span>89%</span></div>
         <div class="metric-card"><div class="icon"><i class="fas fa-charging-station"></i></div><h3>Traffic Saat Ini</h3><div class="metric-value" id="liveTraffic">287.4</div><span>Mbps</span></div>
         <div class="metric-card"><div class="icon"><i class="fas fa-chart-simple"></i></div><h3>Pendapatan Bulan Ini</h3><div class="metric-value">Rp1.000.000</div><span>↑ +18%</span></div>
     </div>
 
-    <!-- Charts -->
     <div class="charts-grid">
         <div class="chart-panel">
             <h3><i class="fas fa-waveform"></i> Bandwidth Utilization (Mbps)</h3>
@@ -458,7 +473,6 @@
         </div>
     </div>
 
-    <!-- Tiket Gangguan & Monitoring Pelanggan -->
     <div class="two-columns">
         <div class="widget-card">
             <h3><i class="fas fa-ticket-alt"></i> Tiket Gangguan Terbaru</h3>
@@ -485,7 +499,6 @@
         </div>
     </div>
 
-    <!-- Pelanggan Belum Bayar & Aktivitas Terbaru -->
     <div class="two-columns">
         <div class="widget-card">
             <h3><i class="fas fa-exclamation-triangle"></i> Pelanggan Belum Bayar</h3>
@@ -498,14 +511,20 @@
             </table>
         </div>
         <div class="widget-card">
-            <h3><i class="fas fa-history"></i> Aktivitas Terbaru</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                <h3 style="margin-bottom: 0;"><i class="fas fa-history"></i> Aktivitas Terbaru</h3>
+                <button onclick="refreshActivity()" 
+                        style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 1rem;" 
+                        title="Refresh aktivitas">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
             <ul class="activity-list" id="activityList">
                 <li><i class="fas fa-spinner fa-pulse"></i> Memuat aktivitas...</li>
             </ul>
         </div>
     </div>
 
-    <!-- Informasi Sistem -->
     <div class="widget-card" style="margin-bottom:20px;">
         <h3><i class="fas fa-server"></i> Informasi Sistem & Gateway</h3>
         <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size:0.85rem;">
@@ -516,7 +535,6 @@
         </div>
     </div>
 
-    <!-- ========== MAPS COVERAGE AREA (SAMA DENGAN LANDING PAGE) ========== -->
     <div class="widget-card map-card">
         <h3><i class="fas fa-map-marked-alt"></i> Area Coverage GOJIN.NET</h3>
         <div class="map-wrapper">
@@ -590,8 +608,18 @@
     let notificationCount = 0;
     let lastNotifRead = localStorage.getItem('lastNotifRead') || 0;
 
+    // ========== LOAD NOTIFIKASI PEMBAYARAN ==========
+    function loadNotifikasiPembayaran() {
+        const stored = localStorage.getItem('gojin_notifikasi');
+        if (stored) {
+            return JSON.parse(stored);
+        }
+        return [];
+    }
+
     function loadRegistrasi() {
         const stored = localStorage.getItem('gojin_registrasi');
+        console.log('🔍 Data registrasi dari localStorage:', stored);
         if (stored) {
             registrasiData = JSON.parse(stored);
         } else {
@@ -604,8 +632,11 @@
 
     function updateNotifBadge() {
         const badge = document.getElementById('notifBadge');
-        if (notificationCount > 0) {
-            badge.innerText = notificationCount;
+        // Total notifikasi = registrasi baru + pembayaran baru
+        const notifPembayaran = loadNotifikasiPembayaran();
+        const totalNotif = notificationCount + notifPembayaran.length;
+        if (totalNotif > 0) {
+            badge.innerText = totalNotif;
             badge.style.display = 'inline-block';
         } else {
             badge.innerText = '0';
@@ -619,15 +650,37 @@
             localStorage.setItem('lastNotifRead', maxId);
             lastNotifRead = maxId;
             notificationCount = 0;
-            updateNotifBadge();
-            alert(`📋 Semua notifikasi telah ditandai dibaca.\nTotal pendaftar: ${registrasiData.length} calon pelanggan.`);
         }
+        // Reset notifikasi pembayaran (tandai sudah dibaca)
+        localStorage.setItem('gojin_notifikasi_read', 'true');
+        updateNotifBadge();
+        alert(`📋 Semua notifikasi telah ditandai dibaca.`);
     }
 
     function updateActivityList() {
         const activityList = document.getElementById('activityList');
         activityList.innerHTML = '';
 
+        // 1. NOTIFIKASI PEMBAYARAN (terbaru dulu)
+        const notifPembayaran = loadNotifikasiPembayaran();
+        const sortedNotif = [...notifPembayaran].reverse().slice(0, 5);
+        sortedNotif.forEach(notif => {
+            const li = document.createElement('li');
+            li.className = 'payment-notif';
+            const jumlahFormatted = 'Rp' + notif.jumlah.toLocaleString('id-ID');
+            li.innerHTML = `
+                <i class="fas fa-check-circle"></i> 
+                <div>
+                    <strong>Pembayaran Berhasil:</strong> 
+                    ${notif.pelanggan} - ${jumlahFormatted} 
+                    <span style="font-size:0.7rem; color: var(--text-secondary);">(${notif.invoice})</span>
+                    <small>${notif.waktu}</small>
+                </div>
+            `;
+            activityList.appendChild(li);
+        });
+
+        // 2. REGISTRASI BARU
         const sortedReg = [...registrasiData].reverse().slice(0, 5);
         sortedReg.forEach(reg => {
             const li = document.createElement('li');
@@ -635,12 +688,7 @@
             activityList.appendChild(li);
         });
 
-        if (sortedReg.length === 0) {
-            const li = document.createElement('li');
-            li.innerHTML = `<i class="fas fa-info-circle"></i> Belum ada pendaftaran baru.`;
-            activityList.appendChild(li);
-        }
-
+        // 3. AKTIVITAS SIMULASI LAINNYA
         const extraActivities = [
             { icon: 'fa-credit-card', text: 'Pembayaran dari Rina Maharani - Rp250.000' },
             { icon: 'fa-wrench', text: 'Tiket #TCK-105 selesai (Internet lemot)' },
@@ -651,6 +699,19 @@
             li.innerHTML = `<i class="fas ${act.icon}"></i> ${act.text}`;
             activityList.appendChild(li);
         });
+
+        if (sortedNotif.length === 0 && sortedReg.length === 0) {
+            const li = document.createElement('li');
+            li.innerHTML = `<i class="fas fa-info-circle"></i> Belum ada aktivitas terbaru.`;
+            activityList.appendChild(li);
+        }
+    }
+
+    // ========== FUNGSI REFRESH MANUAL ==========
+    function refreshActivity() {
+        console.log('🔄 Manual refresh aktivitas...');
+        loadRegistrasi();
+        updateNotifBadge();
     }
 
     document.getElementById('notifBell').addEventListener('click', () => {
@@ -658,6 +719,15 @@
     });
 
     loadRegistrasi();
+
+    // ========== STORAGE EVENT (update dari tab lain) ==========
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'gojin_registrasi' || e.key === 'gojin_notifikasi') {
+            console.log('🔄 Deteksi perubahan data dari tab lain!');
+            loadRegistrasi();
+            updateNotifBadge();
+        }
+    });
 
     // ========== CHARTS ==========
     const ctxBand = document.getElementById('bandwidthChart').getContext('2d');
