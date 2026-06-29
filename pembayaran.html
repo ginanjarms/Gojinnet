@@ -394,6 +394,7 @@
 </div>
 
 <script>
+    // ===== AUTH =====
     function checkAuth() {
         const logged = localStorage.getItem('gojin_logged_in') === 'true' || sessionStorage.getItem('gojin_logged_in') === 'true';
         if (!logged) window.location.href = 'login-new.html';
@@ -407,6 +408,7 @@
         window.location.href = 'landing.html';
     });
 
+    // ===== DARK MODE =====
     const darkToggle = document.getElementById('darkModeToggle');
     if (localStorage.getItem('darkMode') === 'enabled') {
         document.body.classList.add('dark');
@@ -422,6 +424,7 @@
         }
     });
 
+    // ===== DATE TIME =====
     function updateDateTime() {
         const now = new Date();
         const formatted = now.toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -430,6 +433,7 @@
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
+    // ===== DATA TRANSAKSI (Hardcode + dari localStorage) =====
     let transaksiData = [
         { id: "INV-001", pelanggan: "Andi Wijaya", jumlah: 250000, tanggal: "2026-05-10", status: "lunas" },
         { id: "INV-002", pelanggan: "Siti Nurhaliza", jumlah: 150000, tanggal: "2026-05-12", status: "belum" },
@@ -438,22 +442,36 @@
         { id: "INV-005", pelanggan: "Dika Pratama", jumlah: 150000, tanggal: "2026-05-20", status: "belum" }
     ];
 
-    function formatRupiah(angka) {
-        return "Rp" + angka.toLocaleString('id-ID');
+    // ===== FUNGSI MEMUAT INVOICE DARI LOCALSTORAGE =====
+    function loadInvoicesFromStorage() {
+        const stored = localStorage.getItem('gojin_invoices');
+        if (stored) {
+            const invoiceList = JSON.parse(stored);
+            // Gabungkan dengan data hardcode, hindari duplikat ID
+            const existingIds = transaksiData.map(t => t.id);
+            invoiceList.forEach(inv => {
+                if (!existingIds.includes(inv.id)) {
+                    transaksiData.push(inv);
+                }
+            });
+        }
     }
 
-    function updateStats() {
-        const total = transaksiData.reduce((sum, t) => sum + t.jumlah, 0);
-        const lunas = transaksiData.filter(t => t.status === "lunas").length;
-        const belum = transaksiData.filter(t => t.status === "belum").length;
-        const pending = transaksiData.filter(t => t.status === "pending").length;
-        document.getElementById('totalPendapatan').innerText = formatRupiah(total);
-        document.getElementById('totalLunas').innerText = lunas;
-        document.getElementById('totalBelum').innerText = belum;
-        document.getElementById('totalPending').innerText = pending;
+    // ===== FUNGSI UPDATE STATUS INVOICE DI LOCALSTORAGE =====
+    function updateInvoiceStatus(invoiceId, newStatus) {
+        const stored = localStorage.getItem('gojin_invoices');
+        if (stored) {
+            let invoices = JSON.parse(stored);
+            const idx = invoices.findIndex(inv => inv.id === invoiceId);
+            if (idx !== -1) {
+                invoices[idx].status = newStatus;
+                localStorage.setItem('gojin_invoices', JSON.stringify(invoices));
+                console.log(`✅ Status invoice ${invoiceId} diupdate menjadi ${newStatus}`);
+            }
+        }
     }
 
-    // ========== SIMPAN NOTIFIKASI PEMBAYARAN ==========
+    // ===== SIMPAN NOTIFIKASI PEMBAYARAN UNTUK DASHBOARD =====
     function simpanNotifikasiPembayaran(pelanggan, jumlah, invoice) {
         const now = new Date();
         const timestamp = now.toLocaleString('id-ID', { 
@@ -481,6 +499,7 @@
         console.log('✅ Notifikasi pembayaran disimpan:', notif);
     }
 
+    // ===== RENDER TABLE =====
     function renderTable() {
         const searchText = document.getElementById('searchTransaksi').value.toLowerCase();
         const statusFilter = document.getElementById('statusFilter').value;
@@ -511,6 +530,8 @@
                 bayarBtn.onclick = () => {
                     if (confirm(`Proses pembayaran untuk ${t.pelanggan}?`)) {
                         t.status = "lunas";
+                        // Update status di localStorage jika invoice berasal dari gojin_invoices
+                        updateInvoiceStatus(t.id, 'lunas');
                         simpanNotifikasiPembayaran(t.pelanggan, t.jumlah, t.id);
                         renderTable();
                         updateStats();
@@ -525,6 +546,7 @@
                 konfirmasiBtn.onclick = () => {
                     if (confirm(`Konfirmasi pembayaran ${t.pelanggan}?`)) {
                         t.status = "lunas";
+                        updateInvoiceStatus(t.id, 'lunas');
                         simpanNotifikasiPembayaran(t.pelanggan, t.jumlah, t.id);
                         renderTable();
                         updateStats();
@@ -545,6 +567,24 @@
         updateStats();
     }
 
+    // ===== FORMAT RUPIAH =====
+    function formatRupiah(angka) {
+        return "Rp" + angka.toLocaleString('id-ID');
+    }
+
+    // ===== UPDATE STATS =====
+    function updateStats() {
+        const total = transaksiData.reduce((sum, t) => sum + t.jumlah, 0);
+        const lunas = transaksiData.filter(t => t.status === "lunas").length;
+        const belum = transaksiData.filter(t => t.status === "belum").length;
+        const pending = transaksiData.filter(t => t.status === "pending").length;
+        document.getElementById('totalPendapatan').innerText = formatRupiah(total);
+        document.getElementById('totalLunas').innerText = lunas;
+        document.getElementById('totalBelum').innerText = belum;
+        document.getElementById('totalPending').innerText = pending;
+    }
+
+    // ===== TAMBAH TRANSAKSI MANUAL =====
     document.getElementById('tambahTransaksiBtn').addEventListener('click', () => {
         const newId = prompt("ID Transaksi (contoh: INV-006):");
         if (!newId) return;
@@ -560,13 +600,37 @@
             tanggal: today,
             status: "belum"
         });
+        // Simpan juga ke localStorage agar invoice permanen
+        let invoices = JSON.parse(localStorage.getItem('gojin_invoices') || '[]');
+        invoices.push({
+            id: newId,
+            pelanggan: newPelanggan,
+            jumlah: newJumlah,
+            tanggal: today,
+            status: "belum"
+        });
+        localStorage.setItem('gojin_invoices', JSON.stringify(invoices));
         renderTable();
     });
 
+    // ===== SEARCH & FILTER =====
     document.getElementById('searchTransaksi').addEventListener('keyup', renderTable);
     document.getElementById('statusFilter').addEventListener('change', renderTable);
 
+    // ===== LOAD DATA & RENDER =====
+    loadInvoicesFromStorage();
     renderTable();
+
+    // ===== STORAGE EVENT (update dari tab lain) =====
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'gojin_invoices') {
+            console.log('🔄 Invoice baru terdeteksi dari tab lain!');
+            // Reset data sementara, lalu muat ulang dari localStorage
+            transaksiData = transaksiData.filter(t => t.id.startsWith('INV-') && t.id.length < 8); // hapus invoice sementara
+            loadInvoicesFromStorage();
+            renderTable();
+        }
+    });
 </script>
 </body>
 </html>
