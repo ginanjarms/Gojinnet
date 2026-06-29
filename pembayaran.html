@@ -1,21 +1,10 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GOJIN.NET | Manajemen Pembayaran</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script>
-    // Cek preferensi dark mode di localStorage, lalu set warna background secara inline
-    if (localStorage.getItem('darkMode') === 'enabled') {
-        document.documentElement.style.backgroundColor = '#0b1120';
-        document.body.style.backgroundColor = '#0b1120';
-    } else {
-        // opsional untuk light mode, set warna terang
-        document.documentElement.style.backgroundColor = '#f0f2f8';
-        document.body.style.backgroundColor = '#f0f2f8';
-    }
-    </script>
     <style>
         * {
             margin: 0;
@@ -240,7 +229,7 @@
             padding: 16px 24px;
             border: 1px solid var(--border-light);
             flex: 1;
-            min-width: 160px;
+            min-width: 140px;
         }
         .stat-card h4 {
             font-size: 0.75rem;
@@ -365,7 +354,7 @@
     <div class="dashboard-header">
         <div class="dashboard-title">
             <h1>Manajemen Pembayaran</h1>
-            <p>Tagihan dari registrasi & pembayaran pelanggan</p>
+            <p>Riwayat transaksi & tagihan pelanggan</p>
         </div>
         <div class="header-right">
             <div class="date-time" id="liveDateTime"></div>
@@ -377,50 +366,47 @@
     </div>
 
     <div class="stats-row">
-        <div class="stat-card"><h4><i class="fas fa-chart-line"></i> Total Tagihan</h4><div class="value" id="totalTagihan">Rp0</div></div>
+        <div class="stat-card"><h4><i class="fas fa-chart-line"></i> Total Pendapatan</h4><div class="value" id="totalPendapatan">Rp0</div></div>
         <div class="stat-card"><h4><i class="fas fa-check-circle"></i> Lunas</h4><div class="value" id="totalLunas">0</div></div>
         <div class="stat-card"><h4><i class="fas fa-clock"></i> Belum Bayar</h4><div class="value" id="totalBelum">0</div></div>
+        <div class="stat-card"><h4><i class="fas fa-hourglass-half"></i> Pending</h4><div class="value" id="totalPending">0</div></div>
     </div>
 
     <div class="filter-bar">
-        <input type="text" id="searchPembayaran" placeholder="🔍 Cari nama / invoice...">
+        <input type="text" id="searchTransaksi" placeholder="🔍 Cari ID / Nama Pelanggan...">
         <select id="statusFilter">
             <option value="all">Semua Status</option>
             <option value="lunas">Lunas</option>
             <option value="belum">Belum Bayar</option>
+            <option value="pending">Pending</option>
         </select>
-        <button class="btn-primary" id="refreshDataBtn"><i class="fas fa-sync-alt"></i> Refresh Data</button>
+        <button class="btn-primary" id="tambahTransaksiBtn"><i class="fas fa-plus"></i> Tambah Transaksi</button>
     </div>
 
     <div class="table-wrapper">
         <table id="tabelPembayaran">
             <thead>
-                <tr><th>Invoice</th><th>Pelanggan</th><th>Paket</th><th>Jumlah</th><th>Tanggal Registrasi</th><th>Status</th><th>Aksi</th></tr>
+                <tr><th>ID Transaksi</th><th>Pelanggan</th><th>Jumlah</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr>
             </thead>
-            <tbody id="tableBody">
-                <tr><td colspan="7" style="text-align:center;">Memuat data...</td></tr>
-            </tbody>
+            <tbody id="tableBody"></tbody>
         </table>
     </div>
 </div>
 
 <script>
-    // ========== AUTHENTIKASI ==========
     function checkAuth() {
         const logged = localStorage.getItem('gojin_logged_in') === 'true' || sessionStorage.getItem('gojin_logged_in') === 'true';
         if (!logged) window.location.href = 'login-new.html';
     }
     checkAuth();
 
-    // ========== LOGOUT ==========
     document.getElementById('logoutBtn').addEventListener('click', (e) => {
         e.preventDefault();
         localStorage.removeItem('gojin_logged_in');
         sessionStorage.removeItem('gojin_logged_in');
-        window.location.href = 'landing.html'; // ganti dengan landing page Anda
+        window.location.href = 'landing.html';
     });
 
-    // ========== DARK MODE ==========
     const darkToggle = document.getElementById('darkModeToggle');
     if (localStorage.getItem('darkMode') === 'enabled') {
         document.body.classList.add('dark');
@@ -436,7 +422,6 @@
         }
     });
 
-    // ========== LIVE DATE TIME ==========
     function updateDateTime() {
         const now = new Date();
         const formatted = now.toLocaleString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -445,181 +430,143 @@
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
-    // ========== DATA PEMBAYARAN ==========
-    // Kita akan menggunakan data registrasi dari localStorage sebagai sumber tagihan
-    let tagihanData = [];
-
-    function loadTagihan() {
-        const registrasiRaw = localStorage.getItem('gojin_registrasi');
-        let registrasi = registrasiRaw ? JSON.parse(registrasiRaw) : [];
-        // Ambil data pembayaran yang sudah disimpan (status lunas) dari localStorage terpisah
-        let paymentStatus = localStorage.getItem('gojin_pembayaran');
-        let statusMap = paymentStatus ? JSON.parse(paymentStatus) : {};
-
-        // Buat tagihan dari setiap registrasi
-        tagihanData = registrasi.map(reg => {
-            // Parse paket untuk ambil nominal harga
-            let nominal = 0;
-            const paketMatch = reg.paket.match(/Rp(\d+\.?\d*)/);
-            if (paketMatch) {
-                nominal = parseInt(paketMatch[1].replace(/\./g, ''));
-            } else {
-                // fallback
-                if (reg.paket.includes('Basic')) nominal = 100000;
-                else if (reg.paket.includes('Silver')) nominal = 150000;
-                else if (reg.paket.includes('Gold')) nominal = 250000;
-                else nominal = 100000;
-            }
-            const invoiceId = `INV-${reg.id}`;
-            const status = statusMap[reg.id] || 'belum'; // default belum bayar
-            return {
-                id: reg.id,
-                invoice: invoiceId,
-                pelanggan: reg.nama,
-                paket: reg.paket,
-                jumlah: nominal,
-                tanggal: reg.tanggal,
-                status: status
-            };
-        });
-        renderTable();
-        updateStats();
-    }
-
-    function savePaymentStatus() {
-        const statusMap = {};
-        tagihanData.forEach(t => {
-            statusMap[t.id] = t.status;
-        });
-        localStorage.setItem('gojin_pembayaran', JSON.stringify(statusMap));
-    }
-
-    function updateStats() {
-        const totalNominal = tagihanData.reduce((sum, t) => sum + t.jumlah, 0);
-        const lunas = tagihanData.filter(t => t.status === 'lunas').length;
-        const belum = tagihanData.filter(t => t.status === 'belum').length;
-        document.getElementById('totalTagihan').innerText = formatRupiah(totalNominal);
-        document.getElementById('totalLunas').innerText = lunas;
-        document.getElementById('totalBelum').innerText = belum;
-    }
+    let transaksiData = [
+        { id: "INV-001", pelanggan: "Andi Wijaya", jumlah: 250000, tanggal: "2026-05-10", status: "lunas" },
+        { id: "INV-002", pelanggan: "Siti Nurhaliza", jumlah: 150000, tanggal: "2026-05-12", status: "belum" },
+        { id: "INV-003", pelanggan: "Bambang Susanto", jumlah: 100000, tanggal: "2026-05-15", status: "pending" },
+        { id: "INV-004", pelanggan: "Rina Maharani", jumlah: 250000, tanggal: "2026-05-18", status: "lunas" },
+        { id: "INV-005", pelanggan: "Dika Pratama", jumlah: 150000, tanggal: "2026-05-20", status: "belum" }
+    ];
 
     function formatRupiah(angka) {
         return "Rp" + angka.toLocaleString('id-ID');
     }
 
+    function updateStats() {
+        const total = transaksiData.reduce((sum, t) => sum + t.jumlah, 0);
+        const lunas = transaksiData.filter(t => t.status === "lunas").length;
+        const belum = transaksiData.filter(t => t.status === "belum").length;
+        const pending = transaksiData.filter(t => t.status === "pending").length;
+        document.getElementById('totalPendapatan').innerText = formatRupiah(total);
+        document.getElementById('totalLunas').innerText = lunas;
+        document.getElementById('totalBelum').innerText = belum;
+        document.getElementById('totalPending').innerText = pending;
+    }
+
+    // ========== SIMPAN NOTIFIKASI PEMBAYARAN ==========
+    function simpanNotifikasiPembayaran(pelanggan, jumlah, invoice) {
+        const now = new Date();
+        const timestamp = now.toLocaleString('id-ID', { 
+            weekday: 'long', 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric',
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+
+        const notif = {
+            id: Date.now(),
+            pelanggan: pelanggan,
+            jumlah: jumlah,
+            invoice: invoice,
+            waktu: timestamp,
+            jenis: 'pembayaran_berhasil'
+        };
+
+        let daftarNotif = JSON.parse(localStorage.getItem('gojin_notifikasi') || '[]');
+        daftarNotif.push(notif);
+        localStorage.setItem('gojin_notifikasi', JSON.stringify(daftarNotif));
+        console.log('✅ Notifikasi pembayaran disimpan:', notif);
+    }
+
     function renderTable() {
-        const searchText = document.getElementById('searchPembayaran').value.toLowerCase();
+        const searchText = document.getElementById('searchTransaksi').value.toLowerCase();
         const statusFilter = document.getElementById('statusFilter').value;
-        const filtered = tagihanData.filter(t => 
-            (t.pelanggan.toLowerCase().includes(searchText) || t.invoice.toLowerCase().includes(searchText)) &&
+        const filtered = transaksiData.filter(t => 
+            (t.id.toLowerCase().includes(searchText) || t.pelanggan.toLowerCase().includes(searchText)) &&
             (statusFilter === 'all' || t.status === statusFilter)
         );
         const tbody = document.getElementById('tableBody');
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Tidak ada data tagihan</td></tr>';
-            return;
-        }
         tbody.innerHTML = "";
         filtered.forEach(t => {
-            const statusClass = t.status === 'lunas' ? 'status-lunas' : 'status-belum';
-            const statusText = t.status === 'lunas' ? 'Lunas' : 'Belum Bayar';
+            let statusClass = "";
+            let statusText = "";
+            if (t.status === "lunas") { statusClass = "status-lunas"; statusText = "Lunas"; }
+            else if (t.status === "belum") { statusClass = "status-belum"; statusText = "Belum Bayar"; }
+            else { statusClass = "status-pending"; statusText = "Pending"; }
             const row = tbody.insertRow();
-            row.insertCell(0).innerText = t.invoice;
+            row.insertCell(0).innerText = t.id;
             row.insertCell(1).innerText = t.pelanggan;
-            row.insertCell(2).innerText = t.paket;
-            row.insertCell(3).innerText = formatRupiah(t.jumlah);
-            row.insertCell(4).innerText = t.tanggal;
-            row.insertCell(5).innerHTML = `<span class="status-badge ${statusClass}">${statusText}</span>`;
-            const actionCell = row.insertCell(6);
-            if (t.status === 'belum') {
+            row.insertCell(2).innerText = formatRupiah(t.jumlah);
+            row.insertCell(3).innerText = t.tanggal;
+            row.insertCell(4).innerHTML = `<span class="status-badge ${statusClass}">${statusText}</span>`;
+            const actionCell = row.insertCell(5);
+            
+            if (t.status === "belum") {
                 const bayarBtn = document.createElement('button');
                 bayarBtn.innerText = "Bayar";
                 bayarBtn.className = "action-btn";
                 bayarBtn.onclick = () => {
-                    if (confirm(`Konfirmasi pembayaran untuk ${t.pelanggan} dengan nominal ${formatRupiah(t.jumlah)}?`)) {
-                        t.status = 'lunas';
-                        savePaymentStatus();
+                    if (confirm(`Proses pembayaran untuk ${t.pelanggan}?`)) {
+                        t.status = "lunas";
+                        simpanNotifikasiPembayaran(t.pelanggan, t.jumlah, t.id);
                         renderTable();
                         updateStats();
-                        // Tambahkan ke aktivitas dashboard? Bisa juga simpan ke localStorage untuk notifikasi
-                        alert(`✅ Pembayaran ${t.invoice} berhasil dicatat.`);
+                        alert(`✅ Pembayaran ${t.id} berhasil dicatat.\nNotifikasi telah dikirim ke dashboard.`);
                     }
                 };
                 actionCell.appendChild(bayarBtn);
+            } else if (t.status === "pending") {
+                const konfirmasiBtn = document.createElement('button');
+                konfirmasiBtn.innerText = "Konfirmasi";
+                konfirmasiBtn.className = "action-btn";
+                konfirmasiBtn.onclick = () => {
+                    if (confirm(`Konfirmasi pembayaran ${t.pelanggan}?`)) {
+                        t.status = "lunas";
+                        simpanNotifikasiPembayaran(t.pelanggan, t.jumlah, t.id);
+                        renderTable();
+                        updateStats();
+                        alert(`✅ Pembayaran ${t.id} dikonfirmasi.\nNotifikasi telah dikirim ke dashboard.`);
+                    }
+                };
+                actionCell.appendChild(konfirmasiBtn);
             }
+            
             const cetakBtn = document.createElement('button');
-            cetakBtn.innerText = "Cetak Invoice";
+            cetakBtn.innerText = "Cetak";
             cetakBtn.className = "action-btn btn-print";
             cetakBtn.onclick = () => {
-                printInvoice(t);
+                alert(`🖨 Cetak bukti pembayaran ${t.id}\nPelanggan: ${t.pelanggan}\nJumlah: ${formatRupiah(t.jumlah)}\nTanggal: ${t.tanggal}\nStatus: ${statusText}`);
             };
             actionCell.appendChild(cetakBtn);
         });
+        updateStats();
     }
 
-    function printInvoice(tagihan) {
-        // Membuka jendela cetak dengan template invoice
-        const invoiceWindow = window.open('', '_blank');
-        invoiceWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Invoice ${tagihan.invoice}</title>
-                <style>
-                    body { font-family: 'Inter', sans-serif; margin: 40px; }
-                    .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #ddd; border-radius: 20px; }
-                    .header { text-align: center; margin-bottom: 30px; }
-                    .header h1 { color: #2563eb; }
-                    .detail { margin: 20px 0; }
-                    .detail th, .detail td { text-align: left; padding: 8px; }
-                    .total { font-size: 1.2rem; font-weight: bold; text-align: right; margin-top: 20px; }
-                    .footer { text-align: center; margin-top: 40px; font-size: 0.8rem; color: #666; }
-                    button { margin-top: 20px; padding: 8px 20px; cursor: pointer; }
-                </style>
-            </head>
-            <body>
-                <div class="invoice-box">
-                    <div class="header">
-                        <h1>GOJIN.NET</h1>
-                        <p>Invoice Pembayaran Internet</p>
-                    </div>
-                    <div class="detail">
-                        <table width="100%">
-                            <tr><th>No. Invoice:</th><td>${tagihan.invoice}</td></tr>
-                            <tr><th>Tanggal:</th><td>${new Date().toLocaleDateString('id-ID')}</td></tr>
-                            <tr><th>Pelanggan:</th><td>${tagihan.pelanggan}</td></tr>
-                            <tr><th>Paket:</th><td>${tagihan.paket}</td></tr>
-                            <tr><th>Jumlah:</th><td>${formatRupiah(tagihan.jumlah)}</td></tr>
-                            <tr><th>Status:</th><td>${tagihan.status === 'lunas' ? 'LUNAS' : 'BELUM LUNAS'}</td></tr>
-                        </table>
-                    </div>
-                    <div class="total">
-                        Total Dibayar: ${formatRupiah(tagihan.jumlah)}
-                    </div>
-                    <div class="footer">
-                        Terima kasih telah berlangganan GOJIN.NET.<br>
-                        Internet Cepat & Stabil 24 Jam.
-                    </div>
-                    <div style="text-align:center;">
-                        <button onclick="window.print();">Cetak Invoice</button>
-                    </div>
-                </div>
-                <script>window.print();<\/script>
-            </body>
-            </html>
-        `);
-        invoiceWindow.document.close();
-    }
-
-    // Event listeners
-    document.getElementById('searchPembayaran').addEventListener('keyup', renderTable);
-    document.getElementById('statusFilter').addEventListener('change', renderTable);
-    document.getElementById('refreshDataBtn').addEventListener('click', () => {
-        loadTagihan();
+    document.getElementById('tambahTransaksiBtn').addEventListener('click', () => {
+        const newId = prompt("ID Transaksi (contoh: INV-006):");
+        if (!newId) return;
+        const newPelanggan = prompt("Nama Pelanggan:");
+        if (!newPelanggan) return;
+        const newJumlah = parseInt(prompt("Jumlah (contoh: 200000):", "200000"));
+        if (isNaN(newJumlah)) return;
+        const today = new Date().toISOString().slice(0,10);
+        transaksiData.push({
+            id: newId,
+            pelanggan: newPelanggan,
+            jumlah: newJumlah,
+            tanggal: today,
+            status: "belum"
+        });
+        renderTable();
     });
 
-    // Inisialisasi
-    loadTagihan();
+    document.getElementById('searchTransaksi').addEventListener('keyup', renderTable);
+    document.getElementById('statusFilter').addEventListener('change', renderTable);
+
+    renderTable();
 </script>
 </body>
 </html>
