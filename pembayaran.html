@@ -312,6 +312,101 @@
         .btn-print {
             background: #475569;
         }
+        /* ===== MODAL INVOICE ===== */
+        .modal-invoice {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-invoice .modal-content {
+            background: white;
+            border-radius: 32px;
+            max-width: 600px;
+            width: 90%;
+            padding: 30px;
+            position: relative;
+            animation: fadeInUp 0.3s ease;
+        }
+        @keyframes fadeInUp {
+            from { opacity:0; transform: translateY(20px); }
+            to { opacity:1; transform: translateY(0); }
+        }
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+        }
+        .invoice-header .logo-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+        .invoice-header .invoice-number {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        .invoice-body {
+            margin-bottom: 20px;
+        }
+        .invoice-body .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border-light);
+        }
+        .invoice-body .row .label {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .invoice-body .row .value {
+            font-weight: 500;
+        }
+        .invoice-total {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 2px solid var(--accent);
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-align: right;
+        }
+        .invoice-footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+        .modal-buttons button {
+            padding: 10px 24px;
+            border-radius: 40px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-close-modal {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+        .btn-print-invoice {
+            background: var(--accent);
+            color: white;
+        }
         @media (max-width: 780px) {
             .sidebar { width: 80px; padding: 20px 8px; }
             .sidebar .logo h2, .sidebar .logo p, .dark-toggle span, .sidebar-nav li a span { display: none; }
@@ -393,6 +488,13 @@
     </div>
 </div>
 
+<!-- MODAL INVOICE -->
+<div id="invoiceModal" class="modal-invoice">
+    <div class="modal-content" id="invoiceContent">
+        <!-- Akan diisi oleh JavaScript -->
+    </div>
+</div>
+
 <script>
     // ===== AUTH =====
     function checkAuth() {
@@ -433,7 +535,7 @@
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
-    // ===== DATA TRANSAKSI (Hardcode + dari localStorage) =====
+    // ===== DATA TRANSAKSI =====
     let transaksiData = [
         { id: "INV-001", pelanggan: "Andi Wijaya", jumlah: 250000, tanggal: "2026-05-10", status: "lunas" },
         { id: "INV-002", pelanggan: "Siti Nurhaliza", jumlah: 150000, tanggal: "2026-05-12", status: "belum" },
@@ -442,12 +544,11 @@
         { id: "INV-005", pelanggan: "Dika Pratama", jumlah: 150000, tanggal: "2026-05-20", status: "belum" }
     ];
 
-    // ===== FUNGSI MEMUAT INVOICE DARI LOCALSTORAGE =====
+    // ===== MUAT INVOICE DARI LOCALSTORAGE =====
     function loadInvoicesFromStorage() {
         const stored = localStorage.getItem('gojin_invoices');
         if (stored) {
             const invoiceList = JSON.parse(stored);
-            // Gabungkan dengan data hardcode, hindari duplikat ID
             const existingIds = transaksiData.map(t => t.id);
             invoiceList.forEach(inv => {
                 if (!existingIds.includes(inv.id)) {
@@ -457,7 +558,7 @@
         }
     }
 
-    // ===== FUNGSI UPDATE STATUS INVOICE DI LOCALSTORAGE =====
+    // ===== UPDATE STATUS INVOICE DI LOCALSTORAGE =====
     function updateInvoiceStatus(invoiceId, newStatus) {
         const stored = localStorage.getItem('gojin_invoices');
         if (stored) {
@@ -466,105 +567,18 @@
             if (idx !== -1) {
                 invoices[idx].status = newStatus;
                 localStorage.setItem('gojin_invoices', JSON.stringify(invoices));
-                console.log(`✅ Status invoice ${invoiceId} diupdate menjadi ${newStatus}`);
             }
         }
     }
 
-    // ===== SIMPAN NOTIFIKASI PEMBAYARAN UNTUK DASHBOARD =====
+    // ===== NOTIFIKASI PEMBAYARAN =====
     function simpanNotifikasiPembayaran(pelanggan, jumlah, invoice) {
         const now = new Date();
-        const timestamp = now.toLocaleString('id-ID', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric',
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-        });
-
-        const notif = {
-            id: Date.now(),
-            pelanggan: pelanggan,
-            jumlah: jumlah,
-            invoice: invoice,
-            waktu: timestamp,
-            jenis: 'pembayaran_berhasil'
-        };
-
+        const timestamp = now.toLocaleString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        const notif = { id: Date.now(), pelanggan, jumlah, invoice, waktu: timestamp, jenis: 'pembayaran_berhasil' };
         let daftarNotif = JSON.parse(localStorage.getItem('gojin_notifikasi') || '[]');
         daftarNotif.push(notif);
         localStorage.setItem('gojin_notifikasi', JSON.stringify(daftarNotif));
-        console.log('✅ Notifikasi pembayaran disimpan:', notif);
-    }
-
-    // ===== RENDER TABLE =====
-    function renderTable() {
-        const searchText = document.getElementById('searchTransaksi').value.toLowerCase();
-        const statusFilter = document.getElementById('statusFilter').value;
-        const filtered = transaksiData.filter(t => 
-            (t.id.toLowerCase().includes(searchText) || t.pelanggan.toLowerCase().includes(searchText)) &&
-            (statusFilter === 'all' || t.status === statusFilter)
-        );
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = "";
-        filtered.forEach(t => {
-            let statusClass = "";
-            let statusText = "";
-            if (t.status === "lunas") { statusClass = "status-lunas"; statusText = "Lunas"; }
-            else if (t.status === "belum") { statusClass = "status-belum"; statusText = "Belum Bayar"; }
-            else { statusClass = "status-pending"; statusText = "Pending"; }
-            const row = tbody.insertRow();
-            row.insertCell(0).innerText = t.id;
-            row.insertCell(1).innerText = t.pelanggan;
-            row.insertCell(2).innerText = formatRupiah(t.jumlah);
-            row.insertCell(3).innerText = t.tanggal;
-            row.insertCell(4).innerHTML = `<span class="status-badge ${statusClass}">${statusText}</span>`;
-            const actionCell = row.insertCell(5);
-            
-            if (t.status === "belum") {
-                const bayarBtn = document.createElement('button');
-                bayarBtn.innerText = "Bayar";
-                bayarBtn.className = "action-btn";
-                bayarBtn.onclick = () => {
-                    if (confirm(`Proses pembayaran untuk ${t.pelanggan}?`)) {
-                        t.status = "lunas";
-                        // Update status di localStorage jika invoice berasal dari gojin_invoices
-                        updateInvoiceStatus(t.id, 'lunas');
-                        simpanNotifikasiPembayaran(t.pelanggan, t.jumlah, t.id);
-                        renderTable();
-                        updateStats();
-                        alert(`✅ Pembayaran ${t.id} berhasil dicatat.\nNotifikasi telah dikirim ke dashboard.`);
-                    }
-                };
-                actionCell.appendChild(bayarBtn);
-            } else if (t.status === "pending") {
-                const konfirmasiBtn = document.createElement('button');
-                konfirmasiBtn.innerText = "Konfirmasi";
-                konfirmasiBtn.className = "action-btn";
-                konfirmasiBtn.onclick = () => {
-                    if (confirm(`Konfirmasi pembayaran ${t.pelanggan}?`)) {
-                        t.status = "lunas";
-                        updateInvoiceStatus(t.id, 'lunas');
-                        simpanNotifikasiPembayaran(t.pelanggan, t.jumlah, t.id);
-                        renderTable();
-                        updateStats();
-                        alert(`✅ Pembayaran ${t.id} dikonfirmasi.\nNotifikasi telah dikirim ke dashboard.`);
-                    }
-                };
-                actionCell.appendChild(konfirmasiBtn);
-            }
-            
-            const cetakBtn = document.createElement('button');
-            cetakBtn.innerText = "Cetak";
-            cetakBtn.className = "action-btn btn-print";
-            cetakBtn.onclick = () => {
-                alert(`🖨 Cetak bukti pembayaran ${t.id}\nPelanggan: ${t.pelanggan}\nJumlah: ${formatRupiah(t.jumlah)}\nTanggal: ${t.tanggal}\nStatus: ${statusText}`);
-            };
-            actionCell.appendChild(cetakBtn);
-        });
-        updateStats();
     }
 
     // ===== FORMAT RUPIAH =====
@@ -584,6 +598,142 @@
         document.getElementById('totalPending').innerText = pending;
     }
 
+    // ===== RENDER TABLE =====
+    function renderTable() {
+        const searchText = document.getElementById('searchTransaksi').value.toLowerCase();
+        const statusFilter = document.getElementById('statusFilter').value;
+        const filtered = transaksiData.filter(t => 
+            (t.id.toLowerCase().includes(searchText) || t.pelanggan.toLowerCase().includes(searchText)) &&
+            (statusFilter === 'all' || t.status === statusFilter)
+        );
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = "";
+        filtered.forEach(t => {
+            let statusClass = "", statusText = "";
+            if (t.status === "lunas") { statusClass = "status-lunas"; statusText = "Lunas"; }
+            else if (t.status === "belum") { statusClass = "status-belum"; statusText = "Belum Bayar"; }
+            else { statusClass = "status-pending"; statusText = "Pending"; }
+            const row = tbody.insertRow();
+            row.insertCell(0).innerText = t.id;
+            row.insertCell(1).innerText = t.pelanggan;
+            row.insertCell(2).innerText = formatRupiah(t.jumlah);
+            row.insertCell(3).innerText = t.tanggal;
+            row.insertCell(4).innerHTML = `<span class="status-badge ${statusClass}">${statusText}</span>`;
+            const actionCell = row.insertCell(5);
+            
+            if (t.status === "belum") {
+                const bayarBtn = document.createElement('button');
+                bayarBtn.innerText = "Bayar";
+                bayarBtn.className = "action-btn";
+                bayarBtn.onclick = () => {
+                    if (confirm(`Proses pembayaran untuk ${t.pelanggan}?`)) {
+                        t.status = "lunas";
+                        updateInvoiceStatus(t.id, 'lunas');
+                        simpanNotifikasiPembayaran(t.pelanggan, t.jumlah, t.id);
+                        renderTable();
+                        updateStats();
+                        alert(`✅ Pembayaran ${t.id} berhasil dicatat.`);
+                    }
+                };
+                actionCell.appendChild(bayarBtn);
+            } else if (t.status === "pending") {
+                const konfirmasiBtn = document.createElement('button');
+                konfirmasiBtn.innerText = "Konfirmasi";
+                konfirmasiBtn.className = "action-btn";
+                konfirmasiBtn.onclick = () => {
+                    if (confirm(`Konfirmasi pembayaran ${t.pelanggan}?`)) {
+                        t.status = "lunas";
+                        updateInvoiceStatus(t.id, 'lunas');
+                        simpanNotifikasiPembayaran(t.pelanggan, t.jumlah, t.id);
+                        renderTable();
+                        updateStats();
+                        alert(`✅ Pembayaran ${t.id} dikonfirmasi.`);
+                    }
+                };
+                actionCell.appendChild(konfirmasiBtn);
+            }
+            
+            // ===== TOMBOL CETAK =====
+            const cetakBtn = document.createElement('button');
+            cetakBtn.innerText = "Cetak";
+            cetakBtn.className = "action-btn btn-print";
+            cetakBtn.onclick = () => {
+                openInvoiceModal(t.id);
+            };
+            actionCell.appendChild(cetakBtn);
+        });
+        updateStats();
+    }
+
+    // ===== MODAL INVOICE =====
+    function openInvoiceModal(invoiceId) {
+        const trans = transaksiData.find(t => t.id === invoiceId);
+        if (!trans) return;
+        const statusText = trans.status === 'lunas' ? 'LUNAS' : trans.status === 'belum' ? 'BELUM BAYAR' : 'PENDING';
+        const statusColor = trans.status === 'lunas' ? '#22c55e' : trans.status === 'belum' ? '#ef4444' : '#f59e0b';
+
+        // Ambil paket dari localStorage jika ada (opsional), gunakan data default
+        const paket = trans.paket || 'Paket Internet';
+
+        const html = `
+            <div style="padding: 10px;">
+                <div class="invoice-header">
+                    <div class="logo-title">GOJIN.NET</div>
+                    <div class="invoice-number">No. Invoice: ${trans.id}</div>
+                </div>
+                <div class="invoice-body">
+                    <div class="row"><span class="label">Tanggal</span><span class="value">${trans.tanggal}</span></div>
+                    <div class="row"><span class="label">Pelanggan</span><span class="value">${trans.pelanggan}</span></div>
+                    <div class="row"><span class="label">Paket</span><span class="value">${paket}</span></div>
+                    <div class="row"><span class="label">Jumlah</span><span class="value">${formatRupiah(trans.jumlah)}</span></div>
+                    <div class="row"><span class="label">Status</span><span class="value" style="color:${statusColor}; font-weight:700;">${statusText}</span></div>
+                </div>
+                <div class="invoice-total">
+                    Total Dibayar: ${formatRupiah(trans.status === 'lunas' ? trans.jumlah : 0)}
+                </div>
+                <div class="invoice-footer">
+                    Terima kasih telah berlangganan GOJIN.NET.<br>
+                    Internet Cepat & Stabil 24 Jam.
+                </div>
+                <div class="modal-buttons">
+                    <button class="btn-close-modal" onclick="closeInvoiceModal()">Tutup</button>
+                    <button class="btn-print-invoice" onclick="printInvoice()"><i class="fas fa-print"></i> Cetak Invoice</button>
+                </div>
+            </div>
+        `;
+        document.getElementById('invoiceContent').innerHTML = html;
+        document.getElementById('invoiceModal').style.display = 'flex';
+    }
+
+    function closeInvoiceModal() {
+        document.getElementById('invoiceModal').style.display = 'none';
+    }
+
+    function printInvoice() {
+        const content = document.getElementById('invoiceContent').innerHTML;
+        const win = window.open('', '_blank', 'width=600,height=700');
+        win.document.write(`
+            <html>
+            <head><title>Cetak Invoice</title>
+            <style>
+                body { font-family: 'Inter', sans-serif; padding: 30px; }
+                .invoice-header { display:flex; justify-content:space-between; border-bottom:2px solid #2563eb; padding-bottom:16px; margin-bottom:20px; }
+                .logo-title { font-size:1.8rem; font-weight:800; color:#2563eb; }
+                .row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #ddd; }
+                .label { font-weight:600; color:#555; }
+                .value { font-weight:500; }
+                .invoice-total { margin-top:16px; padding-top:16px; border-top:2px solid #2563eb; font-size:1.2rem; font-weight:700; text-align:right; }
+                .invoice-footer { margin-top:20px; text-align:center; font-size:0.85rem; color:#777; }
+                .modal-buttons { display:none; }
+            </style>
+            </head>
+            <body>${content}</body>
+            </html>
+        `);
+        win.document.close();
+        win.print();
+    }
+
     // ===== TAMBAH TRANSAKSI MANUAL =====
     document.getElementById('tambahTransaksiBtn').addEventListener('click', () => {
         const newId = prompt("ID Transaksi (contoh: INV-006):");
@@ -593,22 +743,11 @@
         const newJumlah = parseInt(prompt("Jumlah (contoh: 200000):", "200000"));
         if (isNaN(newJumlah)) return;
         const today = new Date().toISOString().slice(0,10);
-        transaksiData.push({
-            id: newId,
-            pelanggan: newPelanggan,
-            jumlah: newJumlah,
-            tanggal: today,
-            status: "belum"
-        });
-        // Simpan juga ke localStorage agar invoice permanen
+        const newInvoice = { id: newId, pelanggan: newPelanggan, jumlah: newJumlah, tanggal: today, status: "belum" };
+        transaksiData.push(newInvoice);
+        // Simpan ke localStorage
         let invoices = JSON.parse(localStorage.getItem('gojin_invoices') || '[]');
-        invoices.push({
-            id: newId,
-            pelanggan: newPelanggan,
-            jumlah: newJumlah,
-            tanggal: today,
-            status: "belum"
-        });
+        invoices.push(newInvoice);
         localStorage.setItem('gojin_invoices', JSON.stringify(invoices));
         renderTable();
     });
@@ -617,19 +756,23 @@
     document.getElementById('searchTransaksi').addEventListener('keyup', renderTable);
     document.getElementById('statusFilter').addEventListener('change', renderTable);
 
-    // ===== LOAD DATA & RENDER =====
+    // ===== LOAD & RENDER =====
     loadInvoicesFromStorage();
     renderTable();
 
-    // ===== STORAGE EVENT (update dari tab lain) =====
+    // ===== STORAGE EVENT =====
     window.addEventListener('storage', function(e) {
         if (e.key === 'gojin_invoices') {
-            console.log('🔄 Invoice baru terdeteksi dari tab lain!');
-            // Reset data sementara, lalu muat ulang dari localStorage
-            transaksiData = transaksiData.filter(t => t.id.startsWith('INV-') && t.id.length < 8); // hapus invoice sementara
+            transaksiData = transaksiData.filter(t => t.id.startsWith('INV-') && t.id.length < 8);
             loadInvoicesFromStorage();
             renderTable();
         }
+    });
+
+    // ===== TUTUP MODAL SAAT KLIK DI LUAR =====
+    window.addEventListener('click', (e) => {
+        const modal = document.getElementById('invoiceModal');
+        if (e.target === modal) closeInvoiceModal();
     });
 </script>
 </body>
