@@ -384,7 +384,7 @@
             color: #94a3b8;
         }
 
-        /* ===== MODAL SUKSES REGISTRASI (BARU) ===== */
+        /* ===== MODAL SUKSES REGISTRASI ===== */
         .modal-success {
             display: none;
             position: fixed;
@@ -414,10 +414,6 @@
         }
         .modal-success .modal-buttons {
             justify-content: center;
-        }
-        .modal-success .modal-buttons .btn-dashboard {
-            background: #2563eb;
-            color: white;
         }
         .modal-success .modal-buttons .btn-home {
             background: #e2e8f0;
@@ -711,25 +707,22 @@
             </div>
             <div class="modal-buttons">
                 <button type="button" class="btn-cancel" id="cancelModalBtn">Batal</button>
-                <button type="submit" class="btn-submit">Kirim Pendaftaran</button>
+                <button type="submit" class="btn-submit">Kirim Registrasi</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- ===== MODAL SUKSES REGISTRASI (BARU) ===== -->
+<!-- ===== MODAL SUKSES REGISTRASI (DIPERBARUI) ===== -->
 <div id="successModal" class="modal-success">
     <div class="modal-content">
         <div class="icon-success"><i class="fas fa-check-circle"></i></div>
-        <h3>Pendaftaran Berhasil! 🎉</h3>
-        <p class="sub-text">
-            Terima kasih telah mendaftar. Data Anda telah kami terima dan akan segera diproses.
-            <br><br>
-            Untuk melihat status pendaftaran, silakan login ke dashboard.
-        </p>
+        <h3>Registrasi Berhasil! 🎉</h3>
+        <div class="sub-text" id="successMessage">
+            <!-- Akan diisi oleh JavaScript -->
+        </div>
         <div class="modal-buttons">
             <button class="btn-home" id="btnHome">Kembali ke Beranda</button>
-            <button class="btn-dashboard" id="btnGoDashboard">Login ke Dashboard</button>
         </div>
     </div>
 </div>
@@ -795,12 +788,15 @@
     document.getElementById('btnHome').addEventListener('click', () => {
         successModal.style.display = 'none';
     });
-    document.getElementById('btnGoDashboard').addEventListener('click', () => {
-        successModal.style.display = 'none';
-        window.location.href = 'login-new.html';
-    });
 
-    // Handle submit form registrasi
+    // ===== FUNGSI GENERATE INVOICE =====
+    function generateInvoiceNumber() {
+        const existing = JSON.parse(localStorage.getItem('gojin_invoices') || '[]');
+        const count = existing.length + 1;
+        return 'INV-' + String(count).padStart(4, '0');
+    }
+
+    // ===== HANDLE SUBMIT FORM REGISTRASI (DIPERBARUI) =====
     document.getElementById('formRegistrasi').addEventListener('submit', function(e) {
         e.preventDefault();
         const nama = document.getElementById('regNama').value.trim();
@@ -813,6 +809,7 @@
             return;
         }
 
+        // 1. Simpan registrasi ke gojin_registrasi
         const newRegistrasi = {
             id: Date.now(),
             nama: nama,
@@ -822,23 +819,42 @@
             tanggal: new Date().toISOString().slice(0,10),
             status: 'pending'
         };
+        let registrasiList = JSON.parse(localStorage.getItem('gojin_registrasi') || '[]');
+        registrasiList.push(newRegistrasi);
+        localStorage.setItem('gojin_registrasi', JSON.stringify(registrasiList));
+        console.log('✅ Registrasi berhasil disimpan:', registrasiList);
 
-        try {
-            let registrasiList = JSON.parse(localStorage.getItem('gojin_registrasi') || '[]');
-            registrasiList.push(newRegistrasi);
-            localStorage.setItem('gojin_registrasi', JSON.stringify(registrasiList));
-            console.log('✅ Registrasi berhasil disimpan:', registrasiList);
+        // 2. Buat invoice otomatis
+        const invoiceId = generateInvoiceNumber();
+        const hargaPaket = parseInt(paket.split(' - ')[2].replace('Rp', '').replace(/\./g, ''));
+        const invoiceData = {
+            id: invoiceId,
+            pelanggan: nama,
+            jumlah: hargaPaket,
+            tanggal: new Date().toISOString().slice(0,10),
+            status: 'belum'
+        };
+        let invoices = JSON.parse(localStorage.getItem('gojin_invoices') || '[]');
+        invoices.push(invoiceData);
+        localStorage.setItem('gojin_invoices', JSON.stringify(invoices));
+        console.log('✅ Invoice dibuat:', invoiceData);
 
-            // Tutup modal registrasi
-            closeModal();
-
-            // Tampilkan modal sukses
-            successModal.style.display = 'flex';
-
-        } catch (error) {
-            console.error('❌ Gagal menyimpan registrasi:', error);
-            alert('Terjadi kesalahan, silakan coba lagi.');
-        }
+        // 3. Tampilkan modal sukses dengan info invoice, WhatsApp, dan waktu pemasangan
+        closeModal();
+        document.getElementById('successMessage').innerHTML = `
+            Terima kasih <strong>${nama}</strong>, registrasi Anda berhasil.
+            <br><br>
+            <strong>Invoice:</strong> ${invoiceId} dengan total <strong>Rp${hargaPaket.toLocaleString('id-ID')}</strong>
+            <br><br>
+            <i class="fas fa-whatsapp" style="color:#25D366;"></i> 
+            <strong>Invoice akan kami kirimkan melalui WhatsApp</strong> ke nomor <strong>${telepon}</strong> 
+            dalam waktu 1x24 jam.
+            <br><br>
+            ⏳ <strong>Proses pemasangan layanan:</strong> Minimal H-1, Maksimal H-3 setelah konfirmasi pembayaran.
+            <br><br>
+            Silakan cek pesan WhatsApp Anda untuk instruksi pembayaran.
+        `;
+        successModal.style.display = 'flex';
     });
 </script>
 </body>
